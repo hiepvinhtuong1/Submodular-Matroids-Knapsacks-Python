@@ -2,7 +2,10 @@ from typing import Set, List, Union, Tuple
 import numpy as np
 import time
 from sortedcontainers import SortedDict
-from ..utils.helper_funs import init_knapsack_costs, knapsack_feasible_to_add, update_sol_costs, ignorable_knapsack, num_knapsack, dimension_check, initialize_pq
+from ..utils.helper_funs import (
+    init_knapsack_costs, knapsack_feasible_to_add, update_sol_costs,
+    ignorable_knapsack, num_knapsack, dimension_check, initialize_pq
+)
 
 def simultaneous_greedy_alg(pq: SortedDict, num_sol: int, epsilon: float, f_diff, ind_add_oracle,
                             knapsack_constraints: Union[np.ndarray, None], density_ratio: float,
@@ -10,52 +13,47 @@ def simultaneous_greedy_alg(pq: SortedDict, num_sol: int, epsilon: float, f_diff
     assert num_sol > 0
     assert 0 <= epsilon <= 1
 
-    n = len(pq)
+    if len(pq) == 0:
+        return set(), 0.0, 0, 0, False
+
     sol_list = [set() for _ in range(num_sol)]
     sol_vals_list = [0.0 for _ in range(num_sol)]
-
     sol_costs = init_knapsack_costs(num_sol, knapsack_constraints)
 
     num_fun = 0
     num_oracle = 0
     knap_reject = False
 
-    best_elm_info = next(iter(pq.values()))
-    max_gain = -next(iter(pq.keys()))
+    first_key = next(iter(pq))
+    best_elm_info = pq[first_key]
+    max_gain = -first_key[0]  # first element's -f_gain
 
     threshold = (1 - epsilon) * max_gain
     min_threshold = epsilon * max_gain / opt_size_ub
     prev_threshold = threshold
-
     iter = 1
-    print_iter = True
 
     while threshold > min_threshold and len(pq) > 0:
-        (elm, sol_ind, prev_size, density), f_gain = next(iter(pq.items()))
-        del pq[-f_gain]
-        add_this_elm = False
-
-        sol_ind -= 1  # Điều chỉnh chỉ số (Julia bắt đầu từ 1, Python từ 0)
+        key, (elm, sol_ind, prev_size, density) = next(iter(pq.items()))
+        del pq[key]
+        sol_ind -= 1  # Adjust for 0-based index
 
         if prev_size == len(sol_list[sol_ind]):
             if knapsack_feasible_to_add(elm, sol_ind, sol_costs, knapsack_constraints):
                 sol_list[sol_ind].add(elm)
-                sol_vals_list[sol_ind] += f_gain
+                sol_vals_list[sol_ind] += -key[0]
                 update_sol_costs(elm, sol_ind, sol_costs, knapsack_constraints)
 
-                keys_to_remove = [k for k in pq.values() if k[0] == elm]
+                keys_to_remove = [k for k, v in pq.items() if v[0] == elm]
                 for k in keys_to_remove:
-                    for key in list(pq.keys()):
-                        if pq[key] == k:
-                            del pq[key]
+                    del pq[k]
 
                 iter += 1
-                print_iter = True
 
-            if f_gain < threshold and len(pq) > 0:
+            if -key[0] < threshold and len(pq) > 0:
                 prev_threshold = threshold
-                threshold = min((1 - epsilon) * threshold, -next(iter(pq.keys())))
-
+                next_key = next(iter(pq))
+                threshold = min((1 - epsilon) * threshold, -next_key[0])
         else:
             num_oracle += 1
             if ind_add_oracle(elm, sol_list[sol_ind]):
@@ -64,7 +62,8 @@ def simultaneous_greedy_alg(pq: SortedDict, num_sol: int, epsilon: float, f_diff
 
                 if f_gain > density_ratio * density:
                     prev_size = len(sol_list[sol_ind])
-                    pq[-f_gain] = (elm, sol_ind + 1, prev_size, density)
+                    unique_id = time.time_ns()
+                    pq[(-f_gain, unique_id)] = (elm, sol_ind + 1, prev_size, density)
                 else:
                     knap_reject = True
 
@@ -77,26 +76,32 @@ def simultaneous_greedy_alg(pq: SortedDict, num_sol: int, epsilon: float, f_diff
 
     return best_sol, best_f_val, num_fun, num_oracle, knap_reject
 
+
 def density_search(pq: SortedDict, num_sol: int, beta_scaling: float, delta: float,
                    f_diff, ind_add_oracle, knapsack_constraints: Union[np.ndarray, None],
                    epsilon: float, opt_size_ub: int, verbose: bool = True) -> Tuple[Set[int], float, int, int]:
-    _, max_gain = next(iter(pq.items()))
+    if len(pq) == 0:
+        return set(), float('-inf'), 0, 0
+
+    first_key = next(iter(pq))
+    max_gain = -first_key[0]
 
     num_fun = 0
     num_oracle = 0
-
     lower_density_ratio = beta_scaling * max_gain * 1
     upper_density_ratio = beta_scaling * max_gain * opt_size_ub
 
     best_sol = None
     best_f_val = float('-inf')
 
-    iter = 1
     while upper_density_ratio > (1 + delta) * lower_density_ratio:
         density_ratio = np.sqrt(lower_density_ratio * upper_density_ratio)
 
+        copied_pq = SortedDict(pq)
         sol, fval, num_f, num_or, knap_reject = simultaneous_greedy_alg(
-            SortedDict(pq), num_sol, epsilon, f_diff, ind_add_oracle, knapsack_constraints, density_ratio, opt_size_ub)
+            copied_pq, num_sol, epsilon, f_diff, ind_add_oracle,
+            knapsack_constraints, density_ratio, opt_size_ub, verbose
+        )
 
         if fval > best_f_val:
             best_f_val = fval
@@ -110,9 +115,8 @@ def density_search(pq: SortedDict, num_sol: int, beta_scaling: float, delta: flo
         else:
             lower_density_ratio = density_ratio
 
-        iter += 1
-
     return best_sol, best_f_val, num_fun, num_oracle
+
 
 def init_sgs_params(num_sol: int, k: int, extendible: bool, monotone: bool,
                     knapsack_constraints: Union[np.ndarray, None], epsilon: float) -> Tuple[int, bool, float]:
@@ -131,20 +135,21 @@ def init_sgs_params(num_sol: int, k: int, extendible: bool, monotone: bool,
             p = max(num_sol - 1, k)
         else:
             p = k + num_sol - 1
-        beta_scaling = 2 * (1 - epsilon)**2 / (p + 1 + 2*m)
+        beta_scaling = 2 * (1 - epsilon) ** 2 / (p + 1 + 2 * m)
     else:
         if extendible:
-            M = max(int(np.ceil(np.sqrt(1 + 2*m))), k)
+            M = max(int(np.ceil(np.sqrt(1 + 2 * m))), k)
             if num_sol == 0:
                 num_sol = M + 1
             p = M
         else:
             if num_sol == 0:
-                num_sol = int(np.floor(2 + np.sqrt(k + 2*m + 2)))
+                num_sol = int(np.floor(2 + np.sqrt(k + 2 * m + 2)))
             p = k + num_sol - 1
-        beta_scaling = 2 * (1 - epsilon) * (1 - 1/num_sol - epsilon) / (p + 1 + 2*m)
+        beta_scaling = 2 * (1 - epsilon) * (1 - 1 / num_sol - epsilon) / (p + 1 + 2 * m)
 
     return num_sol, run_density_search, beta_scaling
+
 
 def simultaneous_greedys(gnd: List[int], f_diff, ind_add_oracle, num_sol: int = 0, k: int = 0,
                          knapsack_constraints: Union[np.ndarray, None] = None, extendible: bool = False,
@@ -161,13 +166,14 @@ def simultaneous_greedys(gnd: List[int], f_diff, ind_add_oracle, num_sol: int = 
     if opt_size_ub is None:
         opt_size_ub = len(gnd)
 
-    num_sol, run_density_search, beta_scaling = init_sgs_params(num_sol, k, extendible, monotone, knapsack_constraints, epsilon)
+    num_sol, run_density_search, beta_scaling = init_sgs_params(
+        num_sol, k, extendible, monotone, knapsack_constraints, epsilon
+    )
+
     pq, num_fun, num_oracle = initialize_pq(gnd, f_diff, ind_add_oracle, num_sol, knapsack_constraints)
 
     if len(pq) == 0:
-        best_sol = None
-        best_f_val = float('-inf')
-        return best_sol, best_f_val, num_fun, num_oracle
+        return set(), float('-inf'), num_fun, num_oracle
 
     info_verbose = verbose_lvl >= 1
     alg_verbose = verbose_lvl >= 2
@@ -175,17 +181,20 @@ def simultaneous_greedys(gnd: List[int], f_diff, ind_add_oracle, num_sol: int = 
     if run_density_search:
         delta = epsilon
         best_sol, best_f_val, num_f, num_or = density_search(
-            pq, num_sol, beta_scaling, delta, f_diff, ind_add_oracle, knapsack_constraints, epsilon, opt_size_ub, verbose=alg_verbose)
+            pq, num_sol, beta_scaling, delta, f_diff, ind_add_oracle,
+            knapsack_constraints, epsilon, opt_size_ub, verbose=alg_verbose
+        )
     else:
-        density_ratio = 0.0
         best_sol, best_f_val, num_f, num_or, _ = simultaneous_greedy_alg(
-            pq, num_sol, epsilon, f_diff, ind_add_oracle, knapsack_constraints, density_ratio, opt_size_ub, verbose=alg_verbose)
+            pq, num_sol, epsilon, f_diff, ind_add_oracle,
+            knapsack_constraints, 0.0, opt_size_ub, verbose=alg_verbose
+        )
 
     num_fun += num_f
     num_oracle += num_or
-
     end_time = time.time()
+
     if info_verbose:
-        print(f"Simultaneous Greedys runtime: {end_time - start_time} seconds")
+        print(f"Simultaneous Greedys runtime: {end_time - start_time:.4f} seconds")
 
     return best_sol, best_f_val, num_fun, num_oracle

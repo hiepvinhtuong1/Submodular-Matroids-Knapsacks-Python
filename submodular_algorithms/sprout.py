@@ -2,8 +2,8 @@ from typing import Set, List, Union, Tuple
 import numpy as np
 import random
 from sortedcontainers import SortedDict
-from .simultaneous_greedys import simultaneous_greedy_alg
-from ..utils.helper_funs import initialize_pq, ignorable_knapsack, num_knapsack, dimension_check
+from submodular_algorithms.simultaneous_greedys import simultaneous_greedy_alg
+from utils.helper_funs import initialize_pq, ignorable_knapsack, num_knapsack, dimension_check
 
 def density_search_for_sprout(param_c: int, fA_value: float, pq: SortedDict, num_sol: int, beta_scaling: float,
                               gamma_scaling: float, delta: float, f_diff, ind_add_oracle,

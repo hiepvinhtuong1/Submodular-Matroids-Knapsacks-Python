@@ -20,7 +20,7 @@ def initialize_pq(gnd: List[int], f_diff, ind_add_oracle, num_sol: int, knapsack
 
             for sol_ind in range(1, num_sol + 1):
                 key = (elm, sol_ind, prev_size, density)
-                pq[-gain] = key  # Sắp xếp theo gain giảm dần
+                pq[float(-gain)] = key  # Chuyển đổi -gain thành float để tránh lỗi với numpy.float64
 
     return pq, num_oracle, num_fun
 

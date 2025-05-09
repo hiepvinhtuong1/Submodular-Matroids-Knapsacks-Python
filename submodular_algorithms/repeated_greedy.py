@@ -1,9 +1,10 @@
 from typing import Set, List, Union, Tuple
 import numpy as np
 from sortedcontainers import SortedDict
-from .greedy import greedy
-from ..utils.helper_funs import initialize_pq, ignorable_knapsack, num_knapsack, dimension_check, printlnset
+from submodular_algorithms.greedy import greedy
+from utils.helper_funs import initialize_pq, ignorable_knapsack, num_knapsack, dimension_check, printlnset
 
+# (Phần còn lại của tệp giữ nguyên)
 def deterministic_usm(gnd: List[int], f_diff, verbose: bool = False) -> Tuple[Set[int], float, int]:
     Y = set(gnd)
     X = set()

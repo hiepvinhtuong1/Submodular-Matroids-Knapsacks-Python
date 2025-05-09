@@ -1,7 +1,7 @@
 from typing import Set, List, Union, Tuple
 import numpy as np
 import time
-from ..utils.helper_funs import num_knapsack
+from utils.helper_funs import num_knapsack
 
 def knapsack_feasible(sol: Set[int], knapsack_constraints: Union[np.ndarray, None]) -> bool:
     if knapsack_constraints is None:

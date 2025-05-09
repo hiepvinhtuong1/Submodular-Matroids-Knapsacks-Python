@@ -2,8 +2,8 @@ from typing import Set, List, Union, Tuple
 import numpy as np
 import random
 from sortedcontainers import SortedDict
-from .simultaneous_greedys import simultaneous_greedy_alg
-from ..utils.helper_funs import initialize_pq
+from submodular_algorithms.simultaneous_greedys import simultaneous_greedy_alg
+from utils.helper_funs import initialize_pq
 
 def greedy(pq_or_gnd: Union[SortedDict, List[int]], f_diff, ind_add_oracle, knapsack_constraints: Union[np.ndarray, None] = None,
            density_ratio: float = 0.0, epsilon: float = 0.0, opt_size_ub: int = None, verbose: bool = False) -> Tuple[Set[int], float, int, int, bool]:

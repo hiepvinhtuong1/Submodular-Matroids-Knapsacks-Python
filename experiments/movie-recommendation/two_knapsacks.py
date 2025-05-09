@@ -11,9 +11,10 @@ from scipy.spatial.distance import euclidean
 from submodular_greedy import greedy, repeated_greedy, simultaneous_greedys, fantom, main_part_sprout
 
 # Đọc dữ liệu từ file CSV (giả lập)
-data_file = "../../dataset/movie_info.csv"
+data_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "dataset", "movie_info.csv")
 movie_info_df = pd.read_csv(data_file)
 
+# (Phần còn lại của tệp giữ nguyên)
 # Chuyển đổi cột vec từ chuỗi sang danh sách
 movie_info_df['vec'] = movie_info_df['vec'].apply(lambda x: [float(v) for v in x.strip('[]').split(',')])
 # Chuyển đổi cột genre_set từ chuỗi sang tập hợp
@@ -68,9 +69,11 @@ for genres in movie_genre_df:
     genre_list.update(genres)
 genre_list = list(genre_list)
 
+print("Number of genres:", len(genre_list))
+print("Genres:", genre_list)
+
 genre_card_limit = 2
-limit_values = [genre_card_limit] * 19
-genre_limit = {genre_list[i]: limit_values[i] for i in range(len(limit_values))}
+genre_limit = {genre: genre_card_limit for genre in genre_list}
 
 def all_matroid_feasible(sol: Set[int], cardinality_limit: int, genre_limit: Dict[str, int],
                          genre_list: List[str], movie_genre_df: List[Set[str]]) -> bool:
