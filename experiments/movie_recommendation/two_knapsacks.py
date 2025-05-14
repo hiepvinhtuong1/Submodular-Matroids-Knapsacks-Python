@@ -16,7 +16,7 @@ from submodular_greedy import greedy, repeated_greedy, simultaneous_greedys, fan
 from submodular_greedy.algorithms.fantom import knapsack_feasible
 
 # Đọc dữ liệu từ file CSV (giả lập)
-data_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "movie_info.csv")
+data_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "movie_info1.csv")
 movie_info_df = pd.read_csv(data_file)
 
 n = len(movie_info_df)
@@ -94,7 +94,7 @@ def all_matroid_feasible(sol: Set[int], cardinality_limit: int, genre_limit: dic
 ind_add_oracle = lambda elm, sol: all_matroid_feasible(sol | {elm}, card_limit, genre_limit, genre_list, movie_genre_df)
 ind_oracle = lambda sol: all_matroid_feasible(sol, card_limit, genre_limit, genre_list, movie_genre_df)
 
-budget_param = 1.0
+budget_param = 0.64
 
 # Construct knapsack constraints
 knapsack_constraints = np.zeros((2, n))
