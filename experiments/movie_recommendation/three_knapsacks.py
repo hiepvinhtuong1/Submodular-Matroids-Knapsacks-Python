@@ -16,7 +16,7 @@ from submodular_greedy import greedy, repeated_greedy, simultaneous_greedys, fan
 from submodular_greedy.algorithms.fantom import knapsack_feasible
 
 # Load data
-data_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "movie_info.csv")
+data_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "movie_info1.csv")
 movie_info_df = pd.read_csv(data_file)
 
 # Giả định cột runtime (thời lượng phim) tồn tại, nếu không, bạn cần chỉnh sửa

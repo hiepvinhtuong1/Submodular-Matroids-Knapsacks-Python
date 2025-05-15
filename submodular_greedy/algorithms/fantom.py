@@ -64,7 +64,6 @@ def fantom(gnd: List[int], f_diff, ind_add_oracle, knapsack_constraints: Union[n
 def iterated_gdt(p: int, ell: int, f_diff, ind_add_oracle, ground: List[int], knapsack_constraints: Union[np.ndarray, None] = None, rho: float = 0.0) -> Tuple[List[Set[int]], int, int]:
     num_fun = 0
     num_oracle = 0
-    print(f"--------------rho: {rho}---------------")
 
     S_i = []
     ground = ground.copy()
