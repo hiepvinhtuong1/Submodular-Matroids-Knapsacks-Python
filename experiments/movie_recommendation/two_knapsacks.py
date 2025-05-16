@@ -167,10 +167,13 @@ def sproutpp(param_c: int, gnd: List[int], f_diff, ind_oracle, ind_add_oracle, n
         knapsack_constraints_new = knapsack_constraints.copy()
         adjusted_indices = [i - 1 for i in list(gnd_combinatorial)]
         budget1_new = budget1 - np.sum((max_rating - rating_array[adjusted_indices]))
-        knapsack_constraints_new[0, :] = (max_rating - rating_array) / budget1_new
-
-        adjusted_indices = [i - 1 for i in list(gnd_combinatorial)]
         budget2_new = budget2 - np.sum(np.abs(year1 - date_array[adjusted_indices]))
+
+        # Kiểm tra ngân sách còn lại
+        if budget1_new <= 0 or budget2_new <= 0:
+            continue  # Bỏ qua tập gnd_combinatorial hiện tại
+
+        knapsack_constraints_new[0, :] = (max_rating - rating_array) / budget1_new
         knapsack_constraints_new[1, :] = np.abs(year1 - date_array) / budget2_new
 
         sol, f_val, oracle_calls, _ = main_part_sprout(param_c, fA_value, gnd_new, z_diff, ind_add_oracle_new, knapsack_constraints=knapsack_constraints_new, extendible=True, num_sol=num_sol, epsilon=epsilon, k=20, mu=mu)
