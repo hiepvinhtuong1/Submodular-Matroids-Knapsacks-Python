@@ -1,32 +1,22 @@
 import time
 from typing import List, Set, Tuple, Union
-import cupy as cp
+import numpy as np  # Thêm dòng này
 
-def knapsack_feasible(sol: Set[int], knapsack_constraints: Union[cp.ndarray, None]) -> bool:
+def knapsack_feasible(sol: Set[int], knapsack_constraints: Union[np.ndarray, None]) -> bool:
     if knapsack_constraints is None:
         return True
-    sol_list = cp.array(list(sol), dtype=cp.int64) - 1
-    if not sol_list.size:
-        return True
-    return cp.all(cp.sum(knapsack_constraints[:, sol_list], axis=1) <= 1).item()
+    sol_list = list(sol)
+    return np.all(np.sum(knapsack_constraints[:, [x-1 for x in sol_list]], axis=1) <= 1)
 
-def fantom(gnd: List[int], f_diff, ind_add_oracle, knapsack_constraints: Union[cp.ndarray, None] = None, epsilon: float = 0.5, k: int = 0) -> Tuple[Set[int], float, int, int]:
+def fantom(gnd: List[int], f_diff, ind_add_oracle, knapsack_constraints: Union[np.ndarray, None] = None, epsilon: float = 0.5, k: int = 0) -> Tuple[Set[int], float, int, int]:
     start_time = time.time()
     num_fun = 0
     num_oracle = 0
 
     n = len(gnd)
-    # Vector hóa tính vals_elements
-    gnd_array = cp.array(gnd, dtype=cp.int64)
-    # Giả sử f_diff_vectorized đã được định nghĩa trong two_knapsacks.py để tính marginal gain cho nhiều phần tử
-    try:
-        from two_knapsacks import f_diff_vectorized
-        vals_elements = f_diff_vectorized(gnd)
-    except ImportError:
-        # Nếu không có f_diff_vectorized, dùng vòng lặp
-        vals_elements = cp.array([f_diff(elm, set()) for elm in gnd])
+    vals_elements = [f_diff(elm, set()) for elm in gnd]
     num_fun += len(gnd)
-    M = cp.max(vals_elements).item()
+    M = max(vals_elements)
     omega = gnd.copy()
 
     p = k
@@ -43,7 +33,7 @@ def fantom(gnd: List[int], f_diff, ind_add_oracle, knapsack_constraints: Union[c
     U = []
     for rho in R:
         omega = gnd.copy()
-        sols, num_f, num_oracle_batch = iterated_gdt(p, ell, f_diff, ind_add_oracle, ground=omega, knapsack_constraints=knapsack_constraints, rho=rho)
+        sols, num_f, num_oracle = iterated_gdt(p, ell, f_diff, ind_add_oracle, ground=omega, knapsack_constraints=knapsack_constraints, rho=rho)
         for sol in sols:
             U.append(sol)
             current_val = 0.0
@@ -53,7 +43,6 @@ def fantom(gnd: List[int], f_diff, ind_add_oracle, knapsack_constraints: Union[c
                 num_f += 1
                 set_a.add(elm)
         num_fun += num_f
-        num_oracle += num_oracle_batch
 
     best_sol = set()
     best_f_val = 0
@@ -70,11 +59,9 @@ def fantom(gnd: List[int], f_diff, ind_add_oracle, knapsack_constraints: Union[c
 
     end_time = time.time()
     print(f"Time taken: {end_time - start_time} seconds")
-    # Đồng bộ GPU trước khi trả về
-    cp.cuda.Stream.null.synchronize()
     return best_sol, best_f_val, num_fun, num_oracle
 
-def iterated_gdt(p: int, ell: int, f_diff, ind_add_oracle, ground: List[int], knapsack_constraints: Union[cp.ndarray, None] = None, rho: float = 0.0) -> Tuple[List[Set[int]], int, int]:
+def iterated_gdt(p: int, ell: int, f_diff, ind_add_oracle, ground: List[int], knapsack_constraints: Union[np.ndarray, None] = None, rho: float = 0.0) -> Tuple[List[Set[int]], int, int]:
     num_fun = 0
     num_oracle = 0
 
@@ -89,7 +76,7 @@ def iterated_gdt(p: int, ell: int, f_diff, ind_add_oracle, ground: List[int], kn
 
     return S_i, num_fun, num_oracle
 
-def gdt(p: int, ell: int, f_diff, ind_add_oracle, ground: List[int], knapsack_constraints: Union[cp.ndarray, None] = None, rho: float = 0.0) -> Tuple[Set[int], int, int]:
+def gdt(p: int, ell: int, f_diff, ind_add_oracle, ground: List[int], knapsack_constraints: Union[np.ndarray, None] = None, rho: float = 0.0) -> Tuple[Set[int], int, int]:
     num_fun = 0
     num_oracle = 0
 
@@ -105,7 +92,7 @@ def gdt(p: int, ell: int, f_diff, ind_add_oracle, ground: List[int], knapsack_co
             if ind_add_oracle(elm, S) and knapsack_feasible(union_set, knapsack_constraints):
                 val = f_diff(elm, S)
                 num_fun += 1
-                cost = cp.sum(knapsack_constraints[:, elm-1]).item() if knapsack_constraints is not None else 0
+                cost = np.sum(knapsack_constraints[:, elm-1]) if knapsack_constraints is not None else 0
                 if val / (cost + 1e-6) >= rho:
                     if val > cand_val:
                         cand = elm

@@ -1,5 +1,5 @@
 import math
-import cupy as cp
+import numpy as np
 from typing import List, Set, Tuple, Union
 from submodular_greedy.utils.helper_funs import initialize_pq, printset, printlnset, dimension_check, ignorable_knapsack, num_knapsack
 
@@ -34,7 +34,7 @@ def deterministic_usm(gnd: List[int], f_diff, verbose: bool = False) -> Tuple[Se
 
     return X, f_val, num_fun
 
-def repeated_greedy_alg(pq: List, num_sol: int, f_diff, ind_add_oracle, knapsack_constraints: Union[cp.ndarray, None], density_ratio: float, epsilon: float, opt_size_ub: int, verbose: bool = False) -> Tuple[Set[int], float, int, int, bool]:
+def repeated_greedy_alg(pq: List, num_sol: int, f_diff, ind_add_oracle, knapsack_constraints: Union[np.ndarray, None], density_ratio: float, epsilon: float, opt_size_ub: int, verbose: bool = False) -> Tuple[Set[int], float, int, int, bool]:
     best_sol = None
     best_f_val = float('-inf')
     num_fun = 0
@@ -82,11 +82,9 @@ def repeated_greedy_alg(pq: List, num_sol: int, f_diff, ind_add_oracle, knapsack
         if not pq:
             break
 
-    # Đồng bộ GPU
-    cp.cuda.Stream.null.synchronize()
     return best_sol, best_f_val, num_fun, num_oracle, knap_reject
 
-def repeated_greedy_density_search(pq: List, num_sol: int, f_diff, ind_add_oracle, knapsack_constraints: Union[cp.ndarray, None], beta_scaling: float, delta: float, epsilon: float, opt_size_ub: int, verbose: bool = False) -> Tuple[Set[int], float, int, int]:
+def repeated_greedy_density_search(pq: List, num_sol: int, f_diff, ind_add_oracle, knapsack_constraints: Union[np.ndarray, None], beta_scaling: float, delta: float, epsilon: float, opt_size_ub: int, verbose: bool = False) -> Tuple[Set[int], float, int, int]:
     # Sửa đoạn code lấy max_gain
     if not pq:  # Kiểm tra nếu pq rỗng
         return set(), 0.0, 0, 0
@@ -127,11 +125,9 @@ def repeated_greedy_density_search(pq: List, num_sol: int, f_diff, ind_add_oracl
 
         iter += 1
 
-    # Đồng bộ GPU
-    cp.cuda.Stream.null.synchronize()
     return best_sol, best_f_val, num_fun, num_oracle
 
-def init_rg_params(num_sol: int, k: int, monotone: bool, knapsack_constraints: Union[cp.ndarray, None], epsilon: float) -> Tuple[int, bool, float]:
+def init_rg_params(num_sol: int, k: int, monotone: bool, knapsack_constraints: Union[np.ndarray, None], epsilon: float) -> Tuple[int, bool, float]:
     usm_a = 3.0
 
     if ignorable_knapsack(knapsack_constraints):
@@ -153,7 +149,7 @@ def init_rg_params(num_sol: int, k: int, monotone: bool, knapsack_constraints: U
 
     return num_sol, run_density_search, beta_scaling
 
-def repeated_greedy(gnd: List[int], f_diff, ind_add_oracle, num_sol: int = 0, k: int = 0, knapsack_constraints: Union[cp.ndarray, None] = None, monotone: bool = False, epsilon: float = 0.0, opt_size_ub: int = None, verbose_lvl: int = 1) -> Tuple[Set[int], float, int, int]:
+def repeated_greedy(gnd: List[int], f_diff, ind_add_oracle, num_sol: int = 0, k: int = 0, knapsack_constraints: Union[np.ndarray, None] = None, monotone: bool = False, epsilon: float = 0.0, opt_size_ub: int = None, verbose_lvl: int = 1) -> Tuple[Set[int], float, int, int]:
     assert (num_sol > 0) or (k > 0), "At least num_sol or k needs to be specified"
     assert dimension_check(gnd, knapsack_constraints), "More elements in knapsack constraints than in ground set"
     assert ignorable_knapsack(knapsack_constraints) or (epsilon > 0), "Specify non-zero epsilon for density search with knapsack constraints"
@@ -208,6 +204,4 @@ def repeated_greedy(gnd: List[int], f_diff, ind_add_oracle, num_sol: int = 0, k:
         print(f"Obtained solution has value {best_f_val}")
         print(f"Required {num_fun} function evaluations and {num_oracle} independence queries")
 
-    # Đồng bộ GPU
-    cp.cuda.Stream.null.synchronize()
     return best_sol, best_f_val, num_fun, num_oracle
