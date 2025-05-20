@@ -17,7 +17,7 @@ from submodular_greedy import greedy, repeated_greedy, simultaneous_greedys, fan
 from submodular_greedy.algorithms.fantom import knapsack_feasible
 
 # Đọc dữ liệu từ file CSV
-data_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "movie_info1.csv")
+data_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "movie_info5000.csv")
 movie_info_df = pd.read_csv(data_file)
 
 n = len(movie_info_df)
