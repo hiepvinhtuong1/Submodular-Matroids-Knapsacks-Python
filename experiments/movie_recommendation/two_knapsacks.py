@@ -13,7 +13,8 @@ from scipy.spatial.distance import euclidean
 from itertools import combinations
 import random
 import ast
-from submodular_greedy import greedy, repeated_greedy, simultaneous_greedys, fantom, main_part_sprout, twingreedy2,algorithm3_itw
+from submodular_greedy import greedy, repeated_greedy, simultaneous_greedys, fantom, main_part_sprout, twingreedy2, \
+    algorithm3_itw
 from submodular_greedy.algorithms.fantom import knapsack_feasible
 
 # Đọc dữ liệu từ file CSV
@@ -48,7 +49,6 @@ def compute_similarity_array(vec_list: List[List[float]], sigma: float = 1.0) ->
             vj = vec_list[j]
             similarity_array[ind] = np.exp(-4 * euclidean(vi, vj))
             ind += 1
-
     return similarity_array
 
 
@@ -62,8 +62,8 @@ def dispersion_diff(elm: int, sol: Set[int], similarity_array: np.ndarray, n: in
         return 0.0
     coverage_term = sum(get_similarity(similarity_array, i, elm, n) for i in range(1, n + 1))
     diversity_term = (
-                2 * sum(get_similarity(similarity_array, i, elm, n) for i in sol) + get_similarity(similarity_array,
-                                                                                                   elm, elm, n))
+            2 * sum(get_similarity(similarity_array, i, elm, n) for i in sol) + get_similarity(similarity_array, elm,
+                                                                                               elm, n))
     return (coverage_term - diversity_term) / n
 
 
@@ -122,7 +122,7 @@ year1 = 1995
 budget2 = 30 * budget_param
 knapsack_constraints[1, :] = np.abs(year1 - date_array) / budget2
 
-# Hàm SPROUT++ (được giữ nguyên từ mã gốc)
+# Hàm SPROUT++ (giữ nguyên từ mã gốc)
 tc = 2000
 param_c = 1
 param_alpha = 0.5
@@ -133,7 +133,6 @@ def sproutpp(param_c: int, gnd: List[int], f_diff, ind_oracle, ind_add_oracle, n
              knapsack_constraints: Union[np.ndarray, None] = None, extendible: bool = False, monotone: bool = False,
              epsilon: float = 0.0, opt_size_ub: int = None, verbose_lvl: int = 1, param_alpha: float = 0.5) -> Tuple[
     Set[int], float, int]:
-    print("Đã vào đây")
     num_fun = 0
     best_sol = None
     best_f_val = 0
@@ -188,9 +187,8 @@ def sproutpp(param_c: int, gnd: List[int], f_diff, ind_oracle, ind_add_oracle, n
         budget1_new = budget1 - np.sum((max_rating - rating_array[adjusted_indices]))
         budget2_new = budget2 - np.sum(np.abs(year1 - date_array[adjusted_indices]))
 
-        # Kiểm tra ngân sách còn lại
         if budget1_new <= 0 or budget2_new <= 0:
-            continue  # Bỏ qua tập gnd_combinatorial hiện tại
+            continue
 
         knapsack_constraints_new[0, :] = (max_rating - rating_array) / budget1_new
         knapsack_constraints_new[1, :] = np.abs(year1 - date_array) / budget2_new
@@ -212,15 +210,6 @@ def sproutpp(param_c: int, gnd: List[int], f_diff, ind_oracle, ind_add_oracle, n
     return best_sol, best_f_val, num_fun
 
 
-# Chạy các thuật toán và lưu kết quả
-gnd = list(range(1, n + 1))
-num_sol = 2
-epsilon = 0.25
-
-# List to store results
-results = []
-
-
 # Helper function to run an algorithm and collect metrics
 def run_algorithm(name, func, *args, **kwargs):
     start_time = time.time()
@@ -230,23 +219,46 @@ def run_algorithm(name, func, *args, **kwargs):
     # Extract results based on function signature
     if name == "SPROUT++":
         sol, f_val, num_fun = result
-        num_oracle = None  # SPROUT++ doesn't return num_oracle
+        num_oracle = None
     else:
-        sol, f_val, num_fun, num_oracle = result[:4]  # Most algorithms return at least 4 values
+        sol, f_val, num_fun, num_oracle = result[:4]
         if len(result) > 4:
-            knap_reject = result[4]  # For Greedy, which returns an extra value
+            knap_reject = result[4]
 
     running_time = end_time - start_time
-    return {
+    result_dict = {
         "Algorithm": name,
         "budget": budget_param,
         "f(S)": f_val,
-        "Number of query": num_fun,  # Using num_fun as the number of queries
+        "Number of query": num_fun,
         "running time": running_time
     }
 
+    # Lưu kết quả vào file CSV
+    result_df = pd.DataFrame([result_dict])
+    output_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data",
+                               "algorithm_results.csv")
 
-# Run each algorithm and collect results
+    # Kiểm tra xem file đã tồn tại chưa
+    if not os.path.exists(output_file):
+        result_df.to_csv(output_file, index=False, mode='w')
+    else:
+        result_df.to_csv(output_file, index=False, mode='a', header=False)
+
+    print(f"Saved result for {name} to {output_file}")
+
+    return result_dict
+
+
+# Chạy các thuật toán và lưu kết quả
+gnd = list(range(1, n + 1))
+num_sol = 2
+epsilon = 0.25
+
+# List to store results (vẫn giữ để in ra màn hình cuối cùng)
+results = []
+
+# Run each algorithm and save to CSV immediately
 # 1: Greedy
 results.append(run_algorithm("Greedy", greedy, gnd, f_diff, ind_add_oracle, knapsack_constraints=knapsack_constraints))
 
@@ -278,12 +290,8 @@ results.append(
     run_algorithm("Algorithm3ITW", algorithm3_itw, gnd, f_diff, ind_add_oracle, ind_oracle, knapsack_constraints,
                   budget1, budget2, rating_array, date_array, max_rating, year1, mu=1.0))
 
-# Convert results to DataFrame
+# Convert results to DataFrame for final display
 results_df = pd.DataFrame(results)
 
-# Save to CSV
-output_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "algorithm_results.csv")
-results_df.to_csv(output_file, index=False)
-
-print(f"Results saved to {output_file}")
+print(f"Final results:")
 print(results_df)
