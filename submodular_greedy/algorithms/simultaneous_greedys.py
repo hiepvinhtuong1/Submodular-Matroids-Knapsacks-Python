@@ -1,11 +1,11 @@
 import time
 import heapq
 import math
-import numpy as np
+import cupy as cp
 from typing import List, Set, Tuple, Union
 from submodular_greedy.utils.helper_funs import initialize_pq, knapsack_feasible_to_add, init_knapsack_costs, update_sol_costs, ignorable_knapsack, num_knapsack, dimension_check
 
-def simultaneous_greedy_alg(pq: List, num_sol: int, epsilon: float, f_diff, ind_add_oracle, knapsack_constraints: Union[np.ndarray, None], density_ratio: float, opt_size_ub: int, verbose: bool = False) -> Tuple[Set[int], float, int, int, bool]:
+def simultaneous_greedy_alg(pq: List, num_sol: int, epsilon: float, f_diff, ind_add_oracle, knapsack_constraints: Union[cp.ndarray, None], density_ratio: float, opt_size_ub: int, verbose: bool = False) -> Tuple[Set[int], float, int, int, bool]:
     assert num_sol > 0, "num_sol must be positive"
     assert 0 <= epsilon <= 1, "epsilon must be in [0, 1]"
 
@@ -68,13 +68,15 @@ def simultaneous_greedy_alg(pq: List, num_sol: int, epsilon: float, f_diff, ind_
     sol_list.append({best_elm_info[0]})
     sol_vals_list.append(max_gain)
 
-    best_sol_ind = np.argmax(sol_vals_list)
+    best_sol_ind = cp.argmax(cp.array(sol_vals_list)).item()
     best_sol = sol_list[best_sol_ind]
     best_f_val = sol_vals_list[best_sol_ind]
 
+    # Đồng bộ GPU
+    cp.cuda.Stream.null.synchronize()
     return best_sol, best_f_val, num_fun, num_oracle, knap_reject
 
-def density_search(pq: List, num_sol: int, beta_scaling: float, delta: float, f_diff, ind_add_oracle, knapsack_constraints: Union[np.ndarray, None], epsilon: float, opt_size_ub: int, verbose: bool = True) -> Tuple[Set[int], float, int, int]:
+def density_search(pq: List, num_sol: int, beta_scaling: float, delta: float, f_diff, ind_add_oracle, knapsack_constraints: Union[cp.ndarray, None], epsilon: float, opt_size_ub: int, verbose: bool = True) -> Tuple[Set[int], float, int, int]:
     # Sửa đoạn code lấy max_gain
     if not pq:  # Kiểm tra nếu pq rỗng
         return set(), 0.0, 0, 0
@@ -111,9 +113,11 @@ def density_search(pq: List, num_sol: int, beta_scaling: float, delta: float, f_
 
         iter += 1
 
+    # Đồng bộ GPU
+    cp.cuda.Stream.null.synchronize()
     return best_sol, best_f_val, num_fun, num_oracle
 
-def init_sgs_params(num_sol: int, k: int, extendible: bool, monotone: bool, knapsack_constraints: Union[np.ndarray, None], epsilon: float) -> Tuple[int, bool, float]:
+def init_sgs_params(num_sol: int, k: int, extendible: bool, monotone: bool, knapsack_constraints: Union[cp.ndarray, None], epsilon: float) -> Tuple[int, bool, float]:
     if ignorable_knapsack(knapsack_constraints):
         run_density_search = False
         m = 0
@@ -148,7 +152,7 @@ def init_sgs_params(num_sol: int, k: int, extendible: bool, monotone: bool, knap
 
     return num_sol, run_density_search, beta_scaling
 
-def simultaneous_greedys(gnd: List[int], f_diff, ind_add_oracle, num_sol: int = 0, k: int = 0, knapsack_constraints: Union[np.ndarray, None] = None, extendible: bool = False, monotone: bool = False, epsilon: float = 0.0, opt_size_ub: int = None, verbose_lvl: int = 1) -> Tuple[Set[int], float, int, int]:
+def simultaneous_greedys(gnd: List[int], f_diff, ind_add_oracle, num_sol: int = 0, k: int = 0, knapsack_constraints: Union[cp.ndarray, None] = None, extendible: bool = False, monotone: bool = False, epsilon: float = 0.0, opt_size_ub: int = None, verbose_lvl: int = 1) -> Tuple[Set[int], float, int, int]:
     start_time = time.time()
 
     assert (num_sol > 0) or (k > 0), "At least num_sol or k needs to be specified"
@@ -181,4 +185,6 @@ def simultaneous_greedys(gnd: List[int], f_diff, ind_add_oracle, num_sol: int = 
     end_time = time.time()
     print(f"Time taken: {end_time - start_time} seconds")
 
+    # Đồng bộ GPU
+    cp.cuda.Stream.null.synchronize()
     return best_sol, best_f_val, num_fun, num_oracle

@@ -16,5 +16,6 @@ __all__ = [
     'simultaneous_greedys',
     'main_part_sprout',
     'fantom',
-    'twingreedy2'
+    'twingreedy2',
+    'algorithm3_itw'
 ]
