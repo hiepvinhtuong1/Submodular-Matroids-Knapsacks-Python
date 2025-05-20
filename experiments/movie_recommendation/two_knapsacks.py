@@ -292,5 +292,7 @@ results.append(
 # Convert results to DataFrame for final display
 results_df = pd.DataFrame(results)
 
+
 print(f"Final results:")
 print(results_df)
+
