@@ -5,6 +5,7 @@ import os
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.insert(0, project_root)
 
+import time
 import pandas as pd
 import numpy as np
 from typing import List, Set, Union, Tuple
@@ -12,25 +13,28 @@ from scipy.spatial.distance import euclidean
 from itertools import combinations
 import random
 import ast
-from submodular_greedy import greedy, repeated_greedy, simultaneous_greedys, fantom, main_part_sprout, twingreedy2, algorithm3_itw
+from submodular_greedy import greedy, repeated_greedy, simultaneous_greedys, fantom, main_part_sprout, twingreedy2,algorithm3_itw
 from submodular_greedy.algorithms.fantom import knapsack_feasible
 
 # Đọc dữ liệu từ file CSV
-data_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "movie_info.csv")
+data_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "movie_info1.csv")
 movie_info_df = pd.read_csv(data_file)
 
 n = len(movie_info_df)
 print(movie_info_df.columns)
 
+
 # Bước 1: Xây dựng hàm mục tiêu
 def ij_to_ind(i: int, j: int, n: int) -> int:
     if i > j:
         i, j = j, i
-    return (i-1) * n - (i * (i-1)) // 2 + j
+    return (i - 1) * n - (i * (i - 1)) // 2 + j
+
 
 def get_similarity(similarity_array: np.ndarray, i: int, j: int, n: int) -> float:
     ind = ij_to_ind(i, j, n)
-    return similarity_array[ind-1]
+    return similarity_array[ind - 1]
+
 
 def compute_similarity_array(vec_list: List[List[float]], sigma: float = 1.0) -> np.ndarray:
     n = len(vec_list)
@@ -47,23 +51,30 @@ def compute_similarity_array(vec_list: List[List[float]], sigma: float = 1.0) ->
 
     return similarity_array
 
+
 # Phân tích cột vec từ chuỗi sang danh sách
 movie_info_df['vec'] = movie_info_df['vec'].apply(ast.literal_eval)
 similarity_array = compute_similarity_array(movie_info_df['vec'].tolist())
 
+
 def dispersion_diff(elm: int, sol: Set[int], similarity_array: np.ndarray, n: int) -> float:
     if elm in sol:
         return 0.0
-    coverage_term = sum(get_similarity(similarity_array, i, elm, n) for i in range(1, n+1))
-    diversity_term = (2 * sum(get_similarity(similarity_array, i, elm, n) for i in sol) + get_similarity(similarity_array, elm, elm, n))
+    coverage_term = sum(get_similarity(similarity_array, i, elm, n) for i in range(1, n + 1))
+    diversity_term = (
+                2 * sum(get_similarity(similarity_array, i, elm, n) for i in sol) + get_similarity(similarity_array,
+                                                                                                   elm, elm, n))
     return (coverage_term - diversity_term) / n
+
 
 def f_diff(elm: int, sol: Set[int]) -> float:
     return dispersion_diff(elm, sol, similarity_array, n)
 
+
 # Bước 2: Xây dựng ràng buộc
 # Phân tích genre_set từ chuỗi sang tập
-movie_info_df['genre_set'] = movie_info_df['genre_set'].apply(lambda x: set(ast.literal_eval(x.replace('Set([', '[').replace('])', ']'))))
+movie_info_df['genre_set'] = movie_info_df['genre_set'].apply(
+    lambda x: set(ast.literal_eval(x.replace('Set([', '[').replace('])', ']'))))
 movie_genre_df = movie_info_df['genre_set'].tolist()
 
 card_limit = 10
@@ -78,18 +89,21 @@ limit_values = [genre_card_limit] * 19
 
 genre_limit = {genre: limit for genre, limit in zip(genre_list, limit_values)}
 
-def all_matroid_feasible(sol: Set[int], cardinality_limit: int, genre_limit: dict, genre_list: List[str], movie_genre_df: List[Set[str]]) -> bool:
+
+def all_matroid_feasible(sol: Set[int], cardinality_limit: int, genre_limit: dict, genre_list: List[str],
+                         movie_genre_df: List[Set[str]]) -> bool:
     if len(sol) > cardinality_limit:
         return False
 
     genre_count = {genre: 0 for genre in genre_list}
     for elm in sol:
-        for genre in movie_genre_df[elm-1]:
+        for genre in movie_genre_df[elm - 1]:
             if genre in genre_list:
                 genre_count[genre] += 1
                 if genre_count[genre] > genre_limit[genre]:
                     return False
     return True
+
 
 ind_add_oracle = lambda elm, sol: all_matroid_feasible(sol | {elm}, card_limit, genre_limit, genre_list, movie_genre_df)
 ind_oracle = lambda sol: all_matroid_feasible(sol, card_limit, genre_limit, genre_list, movie_genre_df)
@@ -114,7 +128,12 @@ param_c = 1
 param_alpha = 0.5
 mu = 1.0
 
-def sproutpp(param_c: int, gnd: List[int], f_diff, ind_oracle, ind_add_oracle, num_sol: int = 0, k: int = 0, knapsack_constraints: Union[np.ndarray, None] = None, extendible: bool = False, monotone: bool = False, epsilon: float = 0.0, opt_size_ub: int = None, verbose_lvl: int = 1, param_alpha: float = 0.5) -> Tuple[Set[int], float, int]:
+
+def sproutpp(param_c: int, gnd: List[int], f_diff, ind_oracle, ind_add_oracle, num_sol: int = 0, k: int = 0,
+             knapsack_constraints: Union[np.ndarray, None] = None, extendible: bool = False, monotone: bool = False,
+             epsilon: float = 0.0, opt_size_ub: int = None, verbose_lvl: int = 1, param_alpha: float = 0.5) -> Tuple[
+    Set[int], float, int]:
+    print("Đã vào đây")
     num_fun = 0
     best_sol = None
     best_f_val = 0
@@ -142,7 +161,7 @@ def sproutpp(param_c: int, gnd: List[int], f_diff, ind_oracle, ind_add_oracle, n
 
         if fA_value < param_alpha * fA_max:
             continue
-
+        print("--------------------------------", cnt, " iteration--------------------------------")
         if cnt >= tc:
             break
         cnt += 1
@@ -157,7 +176,7 @@ def sproutpp(param_c: int, gnd: List[int], f_diff, ind_oracle, ind_add_oracle, n
         card_limit_new = card_limit - param_c
         genre_limit_new = genre_limit.copy()
         for elm in gnd_combinatorial:
-            for genre in movie_genre_df[elm-1]:
+            for genre in movie_genre_df[elm - 1]:
                 if genre in genre_list:
                     genre_limit_new[genre] = max(genre_limit_new[genre] - 1, 0)
 
@@ -176,7 +195,9 @@ def sproutpp(param_c: int, gnd: List[int], f_diff, ind_oracle, ind_add_oracle, n
         knapsack_constraints_new[0, :] = (max_rating - rating_array) / budget1_new
         knapsack_constraints_new[1, :] = np.abs(year1 - date_array) / budget2_new
 
-        sol, f_val, oracle_calls, _ = main_part_sprout(param_c, fA_value, gnd_new, z_diff, ind_add_oracle_new, knapsack_constraints=knapsack_constraints_new, extendible=True, num_sol=num_sol, epsilon=epsilon, k=20, mu=mu)
+        sol, f_val, oracle_calls, _ = main_part_sprout(param_c, fA_value, gnd_new, z_diff, ind_add_oracle_new,
+                                                       knapsack_constraints=knapsack_constraints_new, extendible=True,
+                                                       num_sol=num_sol, epsilon=epsilon, k=20, mu=mu)
         num_fun += oracle_calls
 
         f_val += fA_value
@@ -190,35 +211,79 @@ def sproutpp(param_c: int, gnd: List[int], f_diff, ind_oracle, ind_add_oracle, n
 
     return best_sol, best_f_val, num_fun
 
-# Chạy các thuật toán
-gnd = list(range(1, n+1))
 
-# 1: Greedy
-sol, f_val, num_fun, num_oracle, knap_reject = greedy(gnd, f_diff, ind_add_oracle, knapsack_constraints=knapsack_constraints)
-print("Giải pháp Greedy:", sol, "Giá trị:", f_val, "Số lần đánh giá hàm (num_fun):", num_fun, "Số truy vấn oracle (num_oracle):", num_oracle)
-
-# 2: Repeated Greedy
+# Chạy các thuật toán và lưu kết quả
+gnd = list(range(1, n + 1))
 num_sol = 2
 epsilon = 0.25
-sol, f_val, num_fun, num_oracle = repeated_greedy(gnd, f_diff, ind_add_oracle, knapsack_constraints=knapsack_constraints, num_sol=num_sol, epsilon=epsilon, k=20)
-print("Giải pháp Repeated Greedy:", sol, "Giá trị:", f_val, "Số lần đánh giá hàm (num_fun):", num_fun, "Số truy vấn oracle (num_oracle):", num_oracle)
+
+# List to store results
+results = []
+
+
+# Helper function to run an algorithm and collect metrics
+def run_algorithm(name, func, *args, **kwargs):
+    start_time = time.time()
+    result = func(*args, **kwargs)
+    end_time = time.time()
+
+    # Extract results based on function signature
+    if name == "SPROUT++":
+        sol, f_val, num_fun = result
+        num_oracle = None  # SPROUT++ doesn't return num_oracle
+    else:
+        sol, f_val, num_fun, num_oracle = result[:4]  # Most algorithms return at least 4 values
+        if len(result) > 4:
+            knap_reject = result[4]  # For Greedy, which returns an extra value
+
+    running_time = end_time - start_time
+    return {
+        "Algorithm": name,
+        "budget": budget_param,
+        "f(S)": f_val,
+        "Number of query": num_fun,  # Using num_fun as the number of queries
+        "running time": running_time
+    }
+
+
+# Run each algorithm and collect results
+# 1: Greedy
+results.append(run_algorithm("Greedy", greedy, gnd, f_diff, ind_add_oracle, knapsack_constraints=knapsack_constraints))
+
+# 2: Repeated Greedy
+results.append(run_algorithm("Repeated Greedy", repeated_greedy, gnd, f_diff, ind_add_oracle,
+                             knapsack_constraints=knapsack_constraints, num_sol=num_sol, epsilon=epsilon, k=20))
 
 # 3: Simultaneous Greedy
-sol, f_val, num_fun, num_oracle = simultaneous_greedys(gnd, f_diff, ind_add_oracle, knapsack_constraints=knapsack_constraints, extendible=True, num_sol=num_sol, epsilon=epsilon, k=20)
-print("Giải pháp Simultaneous Greedy:", sol, "Giá trị:", f_val, "Số lần đánh giá hàm (num_fun):", num_fun, "Số truy vấn oracle (num_oracle):", num_oracle)
+results.append(run_algorithm("Simultaneous Greedy", simultaneous_greedys, gnd, f_diff, ind_add_oracle,
+                             knapsack_constraints=knapsack_constraints, extendible=True, num_sol=num_sol,
+                             epsilon=epsilon, k=20))
 
-# # 4: FANTOM
-# sol, f_val, num_fun, num_oracle = fantom(gnd, f_diff, ind_add_oracle, knapsack_constraints=knapsack_constraints, epsilon=epsilon, k=20)
-# print("Giải pháp FANTOM:", sol, "Giá trị:", f_val, "Số lần đánh giá hàm (num_fun):", num_fun, "Số truy vấn oracle (num_oracle):", num_oracle)
+# 4: FANTOM
+results.append(run_algorithm("FANTOM", fantom, gnd, f_diff, ind_add_oracle, knapsack_constraints=knapsack_constraints,
+                             epsilon=epsilon, k=20))
 
 # 5: SPROUT++
-sol, f_val, num_fun = sproutpp(param_c, gnd, f_diff, ind_oracle, ind_add_oracle, knapsack_constraints=knapsack_constraints, extendible=True, num_sol=num_sol, epsilon=epsilon, k=20, param_alpha=0.5)
-print("Giải pháp SPROUT++:", sol, "Giá trị:", f_val, "Số lần đánh giá hàm (num_fun):", num_fun)
+results.append(run_algorithm("SPROUT++", sproutpp, param_c, gnd, f_diff, ind_oracle, ind_add_oracle,
+                             knapsack_constraints=knapsack_constraints, extendible=True, num_sol=num_sol,
+                             epsilon=epsilon, k=20, param_alpha=0.5))
 
 # 6: TwinGreedy2
-sol, f_val, num_fun, num_oracle = twingreedy2(gnd, f_diff, ind_add_oracle, ind_oracle, knapsack_constraints, budget1, budget2, rating_array, date_array, max_rating, year1)
-print("Giải pháp TwinGreedy2:", sol, "Giá trị:", f_val, "Số lần đánh giá hàm (num_fun):", num_fun, "Số truy vấn oracle (num_oracle):", num_oracle)
+results.append(
+    run_algorithm("TwinGreedy2", twingreedy2, gnd, f_diff, ind_add_oracle, ind_oracle, knapsack_constraints, budget1,
+                  budget2, rating_array, date_array, max_rating, year1))
 
-# 7: Algorithm3ITWAlgorithm
-sol, f_val, num_fun, num_oracle = algorithm3_itw(gnd, f_diff, ind_add_oracle, ind_oracle, knapsack_constraints, budget1, budget2, rating_array, date_array, max_rating, year1, mu=1.0)
-print("Giải pháp Algorithm3ITWAlgorithm:", sol, "Giá trị:", f_val, "Số lần đánh giá hàm (num_fun):", num_fun, "Số truy vấn oracle (num_oracle):", num_oracle)
+# 7: Algorithm3ITW
+results.append(
+    run_algorithm("Algorithm3ITW", algorithm3_itw, gnd, f_diff, ind_add_oracle, ind_oracle, knapsack_constraints,
+                  budget1, budget2, rating_array, date_array, max_rating, year1, mu=1.0))
+
+# Convert results to DataFrame
+results_df = pd.DataFrame(results)
+
+# Save to CSV
+output_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "algorithm_results.csv")
+results_df.to_csv(output_file, index=False)
+
+print(f"Results saved to {output_file}")
+print(results_df)
