@@ -1,0 +1,24 @@
+Ground set has 3000 elements
+Independence system is 20-system
+There are 2 knapsack constraints
+
+Constructing 2 solutions
+A grid search for the best density ratio will be run with the parameters:
+        beta scaling term is 0.014150943396226415
+        error term is 0.25
+        bound on largest set is 3000
+
+
+Obtained solution S = { 153, 320, 331, 427, 493, 2421 
+Obtained solution has value 0.36859216030630143
+Required 8626 function evaluations and 35040 independence queries
+Giải pháp Repeated Greedy: {320, 427, 2421, 153, 331, 493} Giá trị: 0.36859216030630143 Số lần đánh giá hàm (num_fun): 8626 Số truy vấn oracle (num_oracle): 35040
+Time taken: 6.420845985412598 seconds
+Giải pháp Simultaneous Greedy: {471, 709, 358, 427, 331, 1916, 893} Giá trị: 0.3610241890248238 Số lần đánh giá hàm (num_fun): 8450 Số truy vấn oracle (num_oracle): 35002
+.\experiments\movie_recommendation\two_knapsacks.py:174: RuntimeWarning: divide by zero encountered in true_divide
+  knapsack_constraints_new[1, :] = np.abs(year1 - date_array) / budget2_new
+.\experiments\movie_recommendation\two_knapsacks.py:174: RuntimeWarning: invalid value encountered in true_divide
+  knapsack_constraints_new[1, :] = np.abs(year1 - date_array) / budget2_new
+Giải pháp SPROUT++: {1217, 994, 358, 427, 471, 153, 2938, 2139} Giá trị: 0.43060951090839905 Số lần đánh giá hàm (num_fun): 8225289
+Giải pháp TwinGreedy2: {320, 2560, 358, 471, 2139, 331, 2366} Giá trị: 0.40443783290842394 Số lần đánh giá hàm (num_fun): 30735 Số truy vấn oracle (num_oracle): 71700
+Giải pháp Algorithm3ITWAlgorithm: {320, 2560, 358, 331, 471, 2139, 2366} Giá trị: 0.404437832908424 Số lần đánh giá hàm (num_fun): 30406 Số truy vấn oracle (num_oracle): 78645
