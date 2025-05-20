@@ -1,10 +1,10 @@
-import cupy as cp
+import numpy as np
 from typing import List, Set, Union, Tuple
 from submodular_greedy.algorithms.fantom import knapsack_feasible
 
 
-def twingreedy2(gnd: List[int], f_diff, ind_add_oracle, ind_oracle, knapsack_constraints: Union[cp.ndarray, None],
-                budget1: float, budget2: float, rating_array: cp.ndarray, date_array: cp.ndarray, max_rating: float,
+def twingreedy2(gnd: List[int], f_diff, ind_add_oracle, ind_oracle, knapsack_constraints: Union[np.ndarray, None],
+                budget1: float, budget2: float, rating_array: np.ndarray, date_array: np.ndarray, max_rating: float,
                 year1: float) -> Tuple[Set[int], float, int, int]:
     """
     Thuật toán TwinGreedy2 cho bài toán Tối ưu hóa Submodular dưới ràng buộc Matroid và Knapsack.
@@ -14,11 +14,11 @@ def twingreedy2(gnd: List[int], f_diff, ind_add_oracle, ind_oracle, knapsack_con
         f_diff: Hàm mục tiêu tính giá trị biên (marginal gain) khi thêm một phần tử vào tập.
         ind_add_oracle: Hàm kiểm tra tính khả thi của matroid khi thêm một phần tử.
         ind_oracle: Hàm kiểm tra tính khả thi của matroid cho một tập.
-        knapsack_constraints: Ma trận ràng buộc knapsack (2 hàng: điểm đánh giá và năm) (CuPy array).
+        knapsack_constraints: Ma trận ràng buộc knapsack (2 hàng: điểm đánh giá và năm).
         budget1: Ngân sách cho ràng buộc điểm đánh giá.
         budget2: Ngân sách cho ràng buộc năm.
-        rating_array: Mảng điểm đánh giá của các phần tử (CuPy array).
-        date_array: Mảng năm của các phần tử (CuPy array).
+        rating_array: Mảng điểm đánh giá của các phần tử.
+        date_array: Mảng năm của các phần tử.
         max_rating: Điểm đánh giá tối đa.
         year1: Năm tham chiếu để tính chi phí năm.
 
@@ -32,40 +32,31 @@ def twingreedy2(gnd: List[int], f_diff, ind_add_oracle, ind_oracle, knapsack_con
     B1 = budget1  # Ngân sách điểm đánh giá
     B2 = budget2  # Ngân sách năm
 
-    # Tính chi phí cho mỗi phần tử (vector hóa)
-    gnd_array = cp.array(gnd, dtype=cp.int64)
-    idx_array = gnd_array - 1  # Chỉ số 0-based
-    costs1 = (max_rating - rating_array[idx_array])  # Chi phí cho ràng buộc điểm đánh giá
-    costs2 = cp.abs(year1 - date_array[idx_array])  # Chi phí cho ràng buộc năm
+    # Tính chi phí cho mỗi phần tử
+    costs1 = (max_rating - rating_array)  # Chi phí cho ràng buộc điểm đánh giá
+    costs2 = np.abs(year1 - date_array)  # Chi phí cho ràng buộc năm
 
     # Chia tập ground thành E1 (chi phí cao) và E2 (chi phí thấp) dựa trên cả hai ràng buộc
-    condition = (costs1 > B1 / 2) | (costs2 > B2 / 2)
-    E1 = set(cp.where(condition)[0].get() + 1)  # Chuyển về 1-based và lấy set
-    E2 = set(cp.where(~condition)[0].get() + 1)
+    E1 = set()
+    E2 = set()
+    for e in gnd:
+        idx = e - 1
+        # Phần tử vào E1 nếu vượt quá nửa ngân sách của bất kỳ ràng buộc nào
+        if costs1[idx] > B1 / 2 or costs2[idx] > B2 / 2:
+            E1.add(e)
+        else:
+            E2.add(e)
 
     # Tìm phần tử tốt nhất trong E1
     e_m = None
     e_m_val = float('-inf')
     if E1:
-        # Giả sử f_diff_vectorized đã được định nghĩa trong two_knapsacks.py
-        try:
-            from two_knapsacks import f_diff_vectorized
-            E1_array = cp.array(list(E1), dtype=cp.int64)
-            gains = f_diff_vectorized(E1)
-            num_fun += len(E1)
-            for e, val in zip(E1, gains):
-                val = float(val)
-                if val > e_m_val:
-                    e_m = e
-                    e_m_val = val
-        except ImportError:
-            for e in E1:
-                num_fun += 1
-                val = f_diff(e, set())
-                if val > e_m_val:
-                    e_m = e
-                    e_m_val = val
-
+        for e in E1:
+            num_fun += 1
+            val = f_diff(e, set())
+            if val > e_m_val:
+                e_m = e
+                e_m_val = val
         # Kiểm tra xem e_m có khả thi không
         if e_m and (not ind_oracle({e_m}) or not knapsack_feasible({e_m}, knapsack_constraints)):
             e_m = None
@@ -159,6 +150,4 @@ def twingreedy2(gnd: List[int], f_diff, ind_add_oracle, ind_oracle, knapsack_con
             best_f_val = val
             best_sol = S.copy()
 
-    # Đồng bộ GPU
-    cp.cuda.Stream.null.synchronize()
     return best_sol, best_f_val, num_fun, num_oracle

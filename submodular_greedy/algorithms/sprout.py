@@ -1,11 +1,11 @@
 import random
 import math
-import cupy as cp
+import numpy as np
 from typing import List, Set, Tuple, Union
 from submodular_greedy.utils.helper_funs import initialize_pq, ignorable_knapsack, num_knapsack
 from itertools import combinations
 
-def density_search_for_sprout(param_c: int, fA_value: float, pq: List, num_sol: int, beta_scaling: float, gamma_scaling: float, delta: float, f_diff, ind_add_oracle, knapsack_constraints: Union[cp.ndarray, None], epsilon: float, opt_size_ub: int, verbose: bool = True, mu: float = 1.0) -> Tuple[Set[int], float, int, int]:
+def density_search_for_sprout(param_c: int, fA_value: float, pq: List, num_sol: int, beta_scaling: float, gamma_scaling: float, delta: float, f_diff, ind_add_oracle, knapsack_constraints: Union[np.ndarray, None], epsilon: float, opt_size_ub: int, verbose: bool = True, mu: float = 1.0) -> Tuple[Set[int], float, int, int]:
     # Sửa đoạn code lấy max_gain
     if not pq:  # Kiểm tra nếu pq rỗng
         return set(), 0.0, 0, 0
@@ -45,11 +45,9 @@ def density_search_for_sprout(param_c: int, fA_value: float, pq: List, num_sol: 
 
         iter += 1
 
-    # Đồng bộ GPU
-    cp.cuda.Stream.null.synchronize()
     return best_sol, best_f_val, num_fun, num_oracle
 
-def init_sgs_params_for_sprout(num_sol: int, k: int, extendible: bool, monotone: bool, knapsack_constraints: Union[cp.ndarray, None], epsilon: float) -> Tuple[int, bool, float, float]:
+def init_sgs_params_for_sprout(num_sol: int, k: int, extendible: bool, monotone: bool, knapsack_constraints: Union[np.ndarray, None], epsilon: float) -> Tuple[int, bool, float, float]:
     if ignorable_knapsack(knapsack_constraints):
         run_density_search = False
         m = 0
@@ -84,7 +82,7 @@ def init_sgs_params_for_sprout(num_sol: int, k: int, extendible: bool, monotone:
 
     return num_sol, run_density_search, beta_scaling, gamma_scaling
 
-def main_part_sprout(param_c: int, fA_value: float, gnd: List[int], f_diff, ind_add_oracle, num_sol: int = 0, k: int = 0, knapsack_constraints: Union[cp.ndarray, None] = None, extendible: bool = True, monotone: bool = False, epsilon: float = 0.0, opt_size_ub: int = None, verbose_lvl: int = 1, mu: float = 1.0) -> Tuple[Set[int], float, int, int]:
+def main_part_sprout(param_c: int, fA_value: float, gnd: List[int], f_diff, ind_add_oracle, num_sol: int = 0, k: int = 0, knapsack_constraints: Union[np.ndarray, None] = None, extendible: bool = True, monotone: bool = False, epsilon: float = 0.0, opt_size_ub: int = None, verbose_lvl: int = 1, mu: float = 1.0) -> Tuple[Set[int], float, int, int]:
     if not gnd:
         best_sol = set()
         best_f_val = 0
@@ -119,6 +117,4 @@ def main_part_sprout(param_c: int, fA_value: float, gnd: List[int], f_diff, ind_
     num_fun += num_f
     num_oracle += num_or
 
-    # Đồng bộ GPU
-    cp.cuda.Stream.null.synchronize()
     return best_sol, best_f_val, num_fun, num_oracle

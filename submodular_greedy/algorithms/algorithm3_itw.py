@@ -1,10 +1,11 @@
 from typing import List, Set, Tuple
-import cupy as cp
+import numpy as np
 
 from submodular_greedy.algorithms import knapsack_feasible
 
-def algorithm3_itw(gnd: List[int], f_diff, ind_add_oracle, ind_oracle, knapsack_constraints: cp.ndarray, budget1: float,
-                   budget2: float, rating_array: cp.ndarray, date_array: cp.ndarray, max_rating: float, year1: int,
+
+def algorithm3_itw(gnd: List[int], f_diff, ind_add_oracle, ind_oracle, knapsack_constraints: np.ndarray, budget1: float,
+                   budget2: float, rating_array: np.ndarray, date_array: np.ndarray, max_rating: float, year1: int,
                    mu: float = 1.0) -> Tuple[Set[int], float, int, int]:
     """
     Algorithm3ITWAlgorithm for submodular maximization under matroid and knapsack constraints.
@@ -14,9 +15,9 @@ def algorithm3_itw(gnd: List[int], f_diff, ind_add_oracle, ind_oracle, knapsack_
         f_diff: Function to compute the marginal gain f(e | S).
         ind_add_oracle: Function to check if adding an element to a solution is feasible.
         ind_oracle: Function to check if a solution is feasible.
-        knapsack_constraints: Array of knapsack constraints (CuPy array).
+        knapsack_constraints: Array of knapsack constraints.
         budget1, budget2: Budgets for knapsack constraints.
-        rating_array, date_array: Arrays for ratings and years (CuPy arrays).
+        rating_array, date_array: Arrays for ratings and years.
         max_rating, year1: Parameters for cost computation.
         mu: Smoothing parameter for marginal gains.
 
@@ -27,33 +28,31 @@ def algorithm3_itw(gnd: List[int], f_diff, ind_add_oracle, ind_oracle, knapsack_
     num_oracle = 0
 
     # Step 1: Split the ground set into E1 and E2
-    gnd_array = cp.array(gnd, dtype=cp.int64)
-    idx_array = gnd_array - 1  # Chỉ số 0-based
-    c1 = max_rating - rating_array[idx_array]  # Cost for rating constraint
-    c2 = cp.abs(year1 - date_array[idx_array])  # Cost for year constraint
-    num_oracle += 2 * len(gnd)  # Đếm số truy vấn oracle cho toàn bộ ground set
-
-    # Vector hóa điều kiện để chia E1 và E2
-    condition = (c1 > budget1 / 2) | (c2 > budget2 / 2)
-    E1 = cp.where(condition)[0].get() + 1  # Chuyển về 1-based và lấy list
-    E2 = cp.where(~condition)[0].get() + 1
-    E1 = list(E1)
-    E2 = list(E2)
+    E1 = []
+    E2 = []
+    for e in gnd:
+        idx = e - 1
+        c1 = max_rating - rating_array[idx]  # Cost for rating constraint
+        c2 = abs(year1 - date_array[idx])  # Cost for year constraint
+        num_oracle += 2  # Counting oracle queries for cost computation
+        if c1 > budget1 / 2 or c2 > budget2 / 2:
+            E1.append(e)
+        else:
+            E2.append(e)
 
     # Step 2: Find the best element in E1
     best_em = None
     best_em_val = float('-inf')
-    if E1:
-        for e in E1:
-            if not ind_oracle({e}) or not knapsack_feasible({e}, knapsack_constraints):
-                num_oracle += 2
-                continue
-            val = f_diff(e, set())
-            num_fun += 1
-            num_oracle += 1
-            if val > best_em_val:
-                best_em = e
-                best_em_val = val
+    for e in E1:
+        if not ind_oracle({e}) or not knapsack_feasible({e}, knapsack_constraints):
+            num_oracle += 2
+            continue
+        val = f_diff(e, set())
+        num_fun += 1
+        num_oracle += 1
+        if val > best_em_val:
+            best_em = e
+            best_em_val = val
 
     # Step 3: Build S1 and S2 from E2 with smoothing
     S1 = set()
@@ -141,6 +140,4 @@ def algorithm3_itw(gnd: List[int], f_diff, ind_add_oracle, ind_oracle, knapsack_
             best_sol = sol
             best_f_val = val
 
-    # Đồng bộ GPU trước khi trả về kết quả
-    cp.cuda.Stream.null.synchronize()
     return best_sol, best_f_val, num_fun, num_oracle
